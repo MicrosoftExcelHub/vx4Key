@@ -1,59 +1,58 @@
--- json_helper.lua
--- Simple JSON persistence helper for Roblox exploits
--- Requires HttpService, and exploit environment with isfile, readfile, writefile
-
+-- json_keydata.lua
 local HttpService = game:GetService("HttpService")
 
-local JsonHelper = {}
+local JsonKeyData = {}
 
--- Checks if file exists (wrapper for exploit functions)
-function JsonHelper.FileExists(filePath)
-    if isfile then
-        return isfile(filePath)
+-- Load saved key data from file, returns table or nil if no valid data
+function JsonKeyData.Load(filePath)
+    if not isfile or not readfile then
+        warn("[JsonKeyData] File API not available.")
+        return nil
     end
-    return false
-end
 
--- Reads JSON data from file, returns table or nil + error
-function JsonHelper.ReadJson(filePath)
-    if not JsonHelper.FileExists(filePath) then
-        return nil, "File does not exist: " .. filePath
+    if not isfile(filePath) then
+        return nil
     end
-    local content
-    local success, err = pcall(function()
-        content = readfile(filePath)
-    end)
+
+    local success, content = pcall(readfile, filePath)
     if not success then
-        return nil, "Failed to read file: " .. err
+        warn("[JsonKeyData] Failed to read file: " .. tostring(content))
+        return nil
     end
 
-    local data
-    success, err = pcall(function()
-        data = HttpService:JSONDecode(content)
+    local successDecode, data = pcall(function()
+        return HttpService:JSONDecode(content)
     end)
-    if not success then
-        return nil, "Failed to decode JSON: " .. err
+    if not successDecode or type(data) ~= "table" then
+        warn("[JsonKeyData] Invalid JSON data or format")
+        return nil
     end
+
     return data
 end
 
--- Writes table data as JSON to file, returns true or nil + error
-function JsonHelper.WriteJson(filePath, dataTable)
-    local content
-    local success, err = pcall(function()
-        content = HttpService:JSONEncode(dataTable)
-    end)
-    if not success then
-        return nil, "Failed to encode JSON: " .. err
+-- Save key verification data to file, returns true/false
+function JsonKeyData.Save(filePath, dataTable)
+    if not writefile then
+        warn("[JsonKeyData] File API not available.")
+        return false
     end
 
-    success, err = pcall(function()
-        writefile(filePath, content)
+    local successEncode, encoded = pcall(function()
+        return HttpService:JSONEncode(dataTable)
     end)
-    if not success then
-        return nil, "Failed to write file: " .. err
+    if not successEncode then
+        warn("[JsonKeyData] Failed to encode JSON: " .. tostring(encoded))
+        return false
     end
+
+    local successWrite, err = pcall(writefile, filePath, encoded)
+    if not successWrite then
+        warn("[JsonKeyData] Failed to write file: " .. tostring(err))
+        return false
+    end
+
     return true
 end
 
-return JsonHelper
+return JsonKeyData
